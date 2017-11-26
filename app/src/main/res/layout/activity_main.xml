@@ -9,7 +9,7 @@
 
     <com.example.android.revealtextview.RevealTextView
         android:id="@+id/textView"
-        android:layout_width="wrap_content"
+        android:layout_width="200dp"
         android:layout_height="50dp"
         app:endColorFirst="@color/colorPrimary"
         app:endColorSecond="@color/colorAccent"

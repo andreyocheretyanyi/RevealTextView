@@ -13,6 +13,7 @@ import android.graphics.Shader;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.support.v7.widget.AppCompatTextView;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -25,24 +26,23 @@ public class RevealTextView extends View {
 
 
     public static final int mFps = 60;
-    private static final String TAG = "TAG";
 
     private int animationTime = 2000;
     private int mCurrentInvalidateCount;
     private int mMaxInvalidateCount;
     private Path mPath;
     private float mChangedRadius;
-    private boolean isFirstLayerVisible = false, isFirstInit = true;
+    private boolean isFirstLayerVisible = true, isFirstInit = true, isNeedShowAnim = false, isAnimStart = false;
     private int mHighAlpha = 255;
     private int mLowAlpha = 0;
     private int mFirstTextColor, mSecondTextColor, mFirstBackColorColor, mSecondBackColorColor,
             mStartGradientColorFirst, mStartGradientColorSecond, mEndGradientColorFirst, mEndGradientColorSecond;
-    private LinearGradient linearGradient;
-    private int mTextSize = 20;
-    float cx;
-    float cy;
-    float step;
-    int alphaStep;
+    private float mTextSize = 20;
+    private String mText;
+    private float cx;
+    private float cy;
+    private float step;
+    private int alphaStep;
 
     public RevealTextView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -65,7 +65,12 @@ public class RevealTextView extends View {
         mEndGradientColorFirst = ta.getColor(R.styleable.RevealTextView_endColorFirst, -1);
         mStartGradientColorSecond = ta.getColor(R.styleable.RevealTextView_startColorSecond, -1);
         mEndGradientColorSecond = ta.getColor(R.styleable.RevealTextView_endColorSecond, -1);
+        mTextSize = ta.getDimension(R.styleable.RevealTextView_textSize, 20);
+        mText = ta.getString(R.styleable.RevealTextView_text);
         ta.recycle();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            setLayerType(LAYER_TYPE_SOFTWARE, null);
+        }
 
     }
 
@@ -84,7 +89,11 @@ public class RevealTextView extends View {
     }
 
     public void startAnim() {
-        invalidate();
+        if (!isAnimStart) {
+            isAnimStart = true;
+            isNeedShowAnim = true;
+            invalidate();
+        }
     }
 
 
@@ -98,11 +107,9 @@ public class RevealTextView extends View {
             alphaStep = (int) (255f / mMaxInvalidateCount);
             isFirstInit = false;
         }
-        mHighAlpha -= alphaStep;
-        mLowAlpha += alphaStep;
-        mChangedRadius += step;
 
         clipPath(canvas);
+        LinearGradient linearGradient;
         if (isFirstLayerVisible) {
             //first layer
             if (!firstGradientExist())
@@ -139,24 +146,30 @@ public class RevealTextView extends View {
 
         }
 
+        mHighAlpha -= alphaStep;
+        mLowAlpha += alphaStep;
+        mChangedRadius += step;
 
-        if (mCurrentInvalidateCount <= mMaxInvalidateCount) {
-            mCurrentInvalidateCount++;
-            invalidate();
 
-        } else {
-            isFirstLayerVisible = !isFirstLayerVisible;
-            mChangedRadius = 0;
-            mCurrentInvalidateCount = 0;
-            mHighAlpha = 255;
-            mLowAlpha = 0;
-        }
+        if (isNeedShowAnim)
+            if (mCurrentInvalidateCount <= mMaxInvalidateCount) {
+                mCurrentInvalidateCount++;
+                invalidate();
+
+            } else {
+                isAnimStart = false;
+                isFirstLayerVisible = !isFirstLayerVisible;
+                mChangedRadius = 0;
+                mCurrentInvalidateCount = 0;
+                mHighAlpha = 255;
+                mLowAlpha = 0;
+            }
 
 
     }
 
 
-    private void drawLayer(Canvas canvas, float cx, float cy, int backgroundColor, float radius, int textSize, int textColor, int textAlpha) {
+    private void drawLayer(Canvas canvas, float cx, float cy, int backgroundColor, float radius, float textSize, int textColor, int textAlpha) {
         Path textPath = new Path();
         Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         textPaint.setStyle(Paint.Style.FILL);
@@ -173,12 +186,13 @@ public class RevealTextView extends View {
         pathPaint.setColor(backgroundColor);
         mPath.addPath(textPath);
         canvas.drawPath(mPath, pathPaint);
-        canvas.drawTextOnPath("11111", textPath, 0, 0, textPaint);
+        if (mText != null)
+            canvas.drawTextOnPath(mText, textPath, 0, 0, textPaint);
 
         mPath.reset();
     }
 
-    private void drawLayer(Canvas canvas, float cx, float cy, LinearGradient linearGradient, float radius, int textSize, int textColor, int textAlpha) {
+    private void drawLayer(Canvas canvas, float cx, float cy, LinearGradient linearGradient, float radius, float textSize, int textColor, int textAlpha) {
         Path textPath = new Path();
         Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         textPaint.setStyle(Paint.Style.FILL);
@@ -195,7 +209,8 @@ public class RevealTextView extends View {
         pathPaint.setShader(linearGradient);
         mPath.addPath(textPath);
         canvas.drawPath(mPath, pathPaint);
-        canvas.drawTextOnPath("11111", textPath, 0, 0, textPaint);
+        if (mText != null)
+            canvas.drawTextOnPath(mText, textPath, 0, 0, textPaint);
 
         mPath.reset();
     }

@@ -10,5 +10,6 @@
         <attr name="startColorSecond" format="color"/>
         <attr name="endColorFirst" format="color"/>
         <attr name="endColorSecond" format="color"/>
+        <attr name="text" format="string"/>
     </declare-styleable>
 </resources>

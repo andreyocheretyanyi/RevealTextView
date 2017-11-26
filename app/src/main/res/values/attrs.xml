@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="RevealTextView">
+        <attr name="backgroundColorFirst"></attr>
+        <attr name="backgroundColorSecond"></attr>
+        <attr name="textColorFirst"></attr>
+        <attr name="textColorSecond"></attr>
+        <attr name="textSize"></attr>
+    </declare-styleable>
+</resources>

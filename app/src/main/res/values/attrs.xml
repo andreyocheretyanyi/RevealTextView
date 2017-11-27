@@ -11,5 +11,7 @@
         <attr name="endColorFirst" format="color"/>
         <attr name="endColorSecond" format="color"/>
         <attr name="text" format="string"/>
+        <attr name="cornerRadius" format="dimension"/>
+        <attr name="animDuration" format="integer"/>
     </declare-styleable>
 </resources>

@@ -3,34 +3,32 @@ package com.example.android.revealtextview;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
 import android.graphics.Shader;
-import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
-import android.os.Build;
-import android.support.v7.widget.AppCompatTextView;
+import android.graphics.Xfermode;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
-import android.util.TypedValue;
 import android.view.View;
 
 
 public class RevealTextView extends View {
 
 
-    public static final int mFps = 60;
+    private static final int mFps = 30;
+    private final Xfermode mode = new PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP);
 
-    private int animationTime = 2000;
+    private int mAnimDuration = 1000;
+    private float mCornerRadius;
     private int mCurrentInvalidateCount;
     private int mMaxInvalidateCount;
-    private Path mPath;
     private float mChangedRadius;
     private boolean isFirstLayerVisible = true, isFirstInit = true, isNeedShowAnim = false, isAnimStart = false;
     private int mHighAlpha = 255;
@@ -44,14 +42,27 @@ public class RevealTextView extends View {
     private float step;
     private int alphaStep;
 
+    private LinearGradient mFirstGradient, mSecondGradient;
+    private Canvas roundedBitmapCanvas, mainViewCanvas;
+    private Bitmap roundedBitmap, mainViewBitmap;
+    private Path mPath;
+    private Path textPath;
+    private Paint textPaint;
+    private Paint pathPaint;
+    private Paint roundedPaint;
+    private Paint mainPaint;
+
+
     public RevealTextView(Context context, AttributeSet attrs) {
         super(context, attrs);
         initAttrs(context, attrs);
+        initTools();
     }
 
     public RevealTextView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         initAttrs(context, attrs);
+        initTools();
 
     }
 
@@ -67,24 +78,12 @@ public class RevealTextView extends View {
         mEndGradientColorSecond = ta.getColor(R.styleable.RevealTextView_endColorSecond, -1);
         mTextSize = ta.getDimension(R.styleable.RevealTextView_textSize, 20);
         mText = ta.getString(R.styleable.RevealTextView_text);
+        mAnimDuration = ta.getInt(R.styleable.RevealTextView_animDuration, 1000);
+        mCornerRadius = ta.getDimension(R.styleable.RevealTextView_cornerRadius, convertDpToPixel(5));
+
         ta.recycle();
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
-            setLayerType(LAYER_TYPE_SOFTWARE, null);
-        }
 
-    }
-
-    private boolean firstGradientExist() {
-        return mStartGradientColorFirst != -1 && mEndGradientColorFirst != -1;
-    }
-
-    private boolean secondGradientExist() {
-        return mStartGradientColorSecond != -1 && mEndGradientColorSecond != -1;
-    }
-
-    @Override
-    protected void onDraw(Canvas canvas) {
-        initRect(canvas);
+        setLayerType(LAYER_TYPE_SOFTWARE, null);
 
     }
 
@@ -96,55 +95,50 @@ public class RevealTextView extends View {
         }
     }
 
+    private void initTools() {
+        mMaxInvalidateCount = (int) (mAnimDuration / mFps);
+        mPath = new Path();
+        alphaStep = (int) (255f / mMaxInvalidateCount);
 
-    private void initRect(Canvas canvas) {
+        textPath = new Path();
+        textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        textPaint.setStyle(Paint.Style.FILL);
+        textPaint.setTextSize(mTextSize);
+        textPaint.setTextAlign(Paint.Align.CENTER);
+
+        pathPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        pathPaint.setAntiAlias(true);
+        pathPaint.setStyle(Paint.Style.FILL);
+        pathPaint.setFilterBitmap(true);
+
+        roundedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        roundedPaint.setFilterBitmap(true);
+
+        mainPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
         if (isFirstInit) {
-            mMaxInvalidateCount = (int) (animationTime / mFps);
-            mPath = new Path();
             cx = getWidth() / 2;
             cy = getHeight() / 2;
             step = (getWidth() / 1.5f) / mMaxInvalidateCount;
-            alphaStep = (int) (255f / mMaxInvalidateCount);
             isFirstInit = false;
+            mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
+            mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
         }
 
-        clipPath(canvas);
-        LinearGradient linearGradient;
-        if (isFirstLayerVisible) {
-            //first layer
-            if (!firstGradientExist())
-                drawLayer(canvas, cx, cy, mFirstBackColorColor, step * mMaxInvalidateCount, mTextSize, mFirstTextColor, mHighAlpha);
-            else {
-                linearGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
-                drawLayer(canvas, cx, cy, linearGradient, step * mMaxInvalidateCount, mTextSize, mFirstTextColor, mHighAlpha);
-            }
+        //drawRoundCorners
+        clipPath();
 
-            //second layer
-            if (!secondGradientExist()) {
-                drawLayer(canvas, cx, cy, mSecondBackColorColor, mChangedRadius, mTextSize, mSecondTextColor, mLowAlpha);
-            } else {
-                linearGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
-                drawLayer(canvas, cx, cy, linearGradient, mChangedRadius, mTextSize, mSecondTextColor, mLowAlpha);
-            }
+        //draw mainLayers
+        drawMainLayers();
 
-        } else {
-            //second layer
-            if (!secondGradientExist())
-                drawLayer(canvas, cx, cy, mSecondBackColorColor, step * mMaxInvalidateCount, mTextSize, mSecondTextColor, mHighAlpha);
-            else {
-                linearGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
-                drawLayer(canvas, cx, cy, linearGradient, step * mMaxInvalidateCount, mTextSize, mSecondTextColor, mHighAlpha);
-            }
 
-            //first layer
-            if (!firstGradientExist())
-                drawLayer(canvas, cx, cy, mFirstBackColorColor, mChangedRadius, mTextSize, mFirstTextColor, mLowAlpha);
-            else {
-                linearGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
-                drawLayer(canvas, cx, cy, linearGradient, mChangedRadius, mTextSize, mFirstTextColor, mLowAlpha);
-            }
-
-        }
+        canvas.drawBitmap(roundedBitmap, 0, 0, mainPaint);
+        mainPaint.setXfermode(mode);
+        canvas.drawBitmap(mainViewBitmap, 0, 0, mainPaint);
+        mainPaint.setXfermode(null);
 
         mHighAlpha -= alphaStep;
         mLowAlpha += alphaStep;
@@ -168,59 +162,129 @@ public class RevealTextView extends View {
 
     }
 
+    private void drawMainLayers() {
+        if (isFirstLayerVisible) {
+            //first layer
+            if (!firstGradientExist())
+                drawLayer(cx, cy, mFirstBackColorColor, step * mMaxInvalidateCount, mFirstTextColor, mHighAlpha);
+            else {
+                drawLayer(cx, cy, mFirstGradient, step * mMaxInvalidateCount, mFirstTextColor, mHighAlpha);
+            }
 
-    private void drawLayer(Canvas canvas, float cx, float cy, int backgroundColor, float radius, float textSize, int textColor, int textAlpha) {
-        Path textPath = new Path();
-        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            //second layer
+            if (!secondGradientExist()) {
+                drawLayer(cx, cy, mSecondBackColorColor, mChangedRadius, mSecondTextColor, mLowAlpha);
+            } else {
+                drawLayer(cx, cy, mSecondGradient, mChangedRadius, mSecondTextColor, mLowAlpha);
+            }
+
+        } else {
+            //second layer
+            if (!secondGradientExist())
+                drawLayer(cx, cy, mSecondBackColorColor, step * mMaxInvalidateCount, mSecondTextColor, mHighAlpha);
+            else {
+                drawLayer(cx, cy, mSecondGradient, step * mMaxInvalidateCount, mSecondTextColor, mHighAlpha);
+            }
+
+            //first layer
+            if (!firstGradientExist())
+                drawLayer(cx, cy, mFirstBackColorColor, mChangedRadius, mFirstTextColor, mLowAlpha);
+            else {
+                drawLayer(cx, cy, mFirstGradient, mChangedRadius, mFirstTextColor, mLowAlpha);
+            }
+        }
+    }
+
+
+    private void drawLayer(float cx, float cy, int backgroundColor, float radius, int textColor, int textAlpha) {
+        if (mainViewBitmap == null) {
+            mainViewBitmap = Bitmap.createBitmap(getWidth(),
+                    getHeight(),
+                    Bitmap.Config.ARGB_8888);
+            mainViewCanvas = new Canvas(mainViewBitmap);
+            mainViewCanvas.drawColor(
+                    Color.TRANSPARENT,
+                    PorterDuff.Mode.CLEAR);
+        }
+
         textPaint.setStyle(Paint.Style.FILL);
         textPaint.setColor(textColor);
         textPaint.setAlpha(textAlpha);
-        textPaint.setTextSize(textSize);
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPath.moveTo(0, cy);
         textPath.lineTo(getWidth(), cy);
 
+
         mPath.addCircle(cx, cy, radius, Path.Direction.CW);
-        Paint pathPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        pathPaint.setStyle(Paint.Style.FILL);
+
+
+        mPath.addCircle(cx, cy, radius, Path.Direction.CW);
         pathPaint.setColor(backgroundColor);
         mPath.addPath(textPath);
-        canvas.drawPath(mPath, pathPaint);
+        mainViewCanvas.drawPath(mPath, pathPaint);
         if (mText != null)
-            canvas.drawTextOnPath(mText, textPath, 0, 0, textPaint);
+            mainViewCanvas.drawTextOnPath(mText, textPath, 0, 0, textPaint);
 
         mPath.reset();
     }
 
-    private void drawLayer(Canvas canvas, float cx, float cy, LinearGradient linearGradient, float radius, float textSize, int textColor, int textAlpha) {
-        Path textPath = new Path();
-        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private void drawLayer(float cx, float cy, LinearGradient linearGradient, float radius, int textColor, int textAlpha) {
+        if (mainViewBitmap == null) {
+            mainViewBitmap = Bitmap.createBitmap(getWidth(),
+                    getHeight(),
+                    Bitmap.Config.ARGB_8888);
+            mainViewCanvas = new Canvas(mainViewBitmap);
+            mainViewCanvas.drawColor(
+                    Color.TRANSPARENT,
+                    PorterDuff.Mode.CLEAR);
+        }
+
         textPaint.setStyle(Paint.Style.FILL);
         textPaint.setColor(textColor);
         textPaint.setAlpha(textAlpha);
-        textPaint.setTextSize(textSize);
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPath.moveTo(0, cy);
         textPath.lineTo(getWidth(), cy);
 
+
         mPath.addCircle(cx, cy, radius, Path.Direction.CW);
-        Paint pathPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        pathPaint.setStyle(Paint.Style.FILL);
+
+
+        mPath.addCircle(cx, cy, radius, Path.Direction.CW);
         pathPaint.setShader(linearGradient);
         mPath.addPath(textPath);
-        canvas.drawPath(mPath, pathPaint);
+        mainViewCanvas.drawPath(mPath, pathPaint);
         if (mText != null)
-            canvas.drawTextOnPath(mText, textPath, 0, 0, textPaint);
+            mainViewCanvas.drawTextOnPath(mText, textPath, 0, 0, textPaint);
 
         mPath.reset();
     }
 
 
-    private void clipPath(Canvas canvas) {
-        Path path = new Path();
-        path.addRoundRect(new RectF(4, 4, getWidth() - 4, getHeight() - 4), convertDpToPixel(5), convertDpToPixel(5), Path.Direction.CW);
-        canvas.clipPath(path);
+    private void clipPath() {
+        if (roundedBitmap == null) {
+            roundedBitmap = Bitmap.createBitmap(getWidth(),
+                    getHeight(),
+                    Bitmap.Config.ARGB_8888);
+            roundedBitmapCanvas = new Canvas(roundedBitmap);
+        }
+        roundedBitmapCanvas.drawColor(
+                Color.TRANSPARENT,
+                PorterDuff.Mode.CLEAR);
 
+        Path path = new Path();
+        path.addRoundRect(new RectF(0, 0, getWidth(), getHeight()), mCornerRadius, mCornerRadius, Path.Direction.CW);
+        roundedBitmapCanvas.drawPath(path, roundedPaint);
+
+    }
+
+
+    private boolean firstGradientExist() {
+        return mStartGradientColorFirst != -1 && mEndGradientColorFirst != -1;
+    }
+
+    private boolean secondGradientExist() {
+        return mStartGradientColorSecond != -1 && mEndGradientColorSecond != -1;
     }
 
 

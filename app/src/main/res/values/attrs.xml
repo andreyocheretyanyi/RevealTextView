@@ -5,14 +5,15 @@
         <attr name="backgroundColorSecond" format="color"/>
         <attr name="textColorFirst" format="color"/>
         <attr name="textColorSecond" format="color"/>
-        <attr name="textSize" format="dimension"/>
         <attr name="startColorFirst" format="color"/>
         <attr name="startColorSecond" format="color"/>
         <attr name="endColorFirst" format="color"/>
         <attr name="endColorSecond" format="color"/>
-        <attr name="text" format="string"/>
         <attr name="cornerRadius" format="dimension"/>
         <attr name="animDuration" format="integer"/>
-        <attr name="image" format="reference"/>
+        <attr name="drawableLeft" format="reference"/>
+        <attr name="drawableRight" format="reference"/>
+        <attr name="drawableTop" format="reference"/>
+        <attr name="drawableBottom" format="reference"/>
     </declare-styleable>
 </resources>

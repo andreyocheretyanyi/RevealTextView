@@ -1,6 +1,8 @@
 package com.example.android.revealtextview;
 
 import android.animation.Animator;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -18,6 +20,7 @@ import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Xfermode;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.animation.LinearInterpolator;
@@ -44,9 +47,11 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
     private Paint pathPaint;
     private Paint roundedPaint;
     private Paint mainPaint;
+    private int drawableRes;
 
     private ValueAnimator mValueAnimator;
     private final TimeInterpolator interpolator = new LinearInterpolator();
+    private Drawable drawable;
 
 
     public RevealTextView(Context context, AttributeSet attrs) {
@@ -75,6 +80,21 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
         mAnimDuration = ta.getInt(R.styleable.RevealTextView_animDuration, 300);
         mCornerRadius = ta.getDimension(R.styleable.RevealTextView_cornerRadius, convertDpToPixel(5));
 
+        if (ta.getResourceId(R.styleable.RevealTextView_drawableLeft, -1) != -1) {
+            drawable = getResources().getDrawable(ta.getResourceId(R.styleable.RevealTextView_drawableLeft, -1));
+            setCompoundDrawablesWithIntrinsicBounds(drawable, null, null, null);
+        } else if (ta.getResourceId(R.styleable.RevealTextView_drawableRight, -1) != -1) {
+            drawable = getResources().getDrawable(ta.getResourceId(R.styleable.RevealTextView_drawableRight, -1));
+            setCompoundDrawablesWithIntrinsicBounds(null, null, drawable, null);
+        } else if (ta.getResourceId(R.styleable.RevealTextView_drawableTop, -1) != -1) {
+            drawable = getResources().getDrawable(ta.getResourceId(R.styleable.RevealTextView_drawableTop, -1));
+            setCompoundDrawablesWithIntrinsicBounds(null, drawable, null, null);
+        } else if (ta.getResourceId(R.styleable.RevealTextView_drawableBottom, -1) != -1) {
+            drawable = getResources().getDrawable(ta.getResourceId(R.styleable.RevealTextView_drawableBottom, -1));
+            setCompoundDrawablesWithIntrinsicBounds(null, null, null, drawable);
+        }
+
+
         ta.recycle();
 
         setLayerType(LAYER_TYPE_SOFTWARE, null);
@@ -84,7 +104,17 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
     public void startAnim() {
         if (!isAnimStart) {
             isAnimStart = true;
-            mValueAnimator.start();
+            ObjectAnimator animator;
+            if (!isFirstLayerVisible) {
+                animator = ObjectAnimator.ofInt(drawable, "level", 0, 720).setDuration(mAnimDuration);
+            }else {
+                animator = ObjectAnimator.ofInt(drawable, "level", 720, 0).setDuration(mAnimDuration);
+            }
+            AnimatorSet animatorSet = new AnimatorSet();
+            animatorSet.setDuration(mAnimDuration);
+            animatorSet.playTogether(mValueAnimator, animator);
+            animatorSet.start();
+
         }
     }
 
@@ -282,6 +312,5 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
         DisplayMetrics metrics = resources.getDisplayMetrics();
         return dp * ((float) metrics.densityDpi / DisplayMetrics.DENSITY_DEFAULT);
     }
-
 
 }

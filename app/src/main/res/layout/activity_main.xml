@@ -8,18 +8,17 @@
     tools:context="com.example.android.revealtextview.MainActivity">
 
     <com.example.android.revealtextview.RevealTextView
-        android:gravity="center"
         android:id="@+id/textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:text="@string/app_name"
+        android:gravity="center"
         android:padding="20dp"
+        android:text="@string/app_name"
+        app:cornerRadius="30dp"
+        app:drawableRight="@drawable/rotate"
         app:endColorFirst="@color/colorPrimary"
         app:endColorSecond="@color/colorAccent"
         app:startColorFirst="@color/colorAccent"
-        app:startColorSecond="@color/colorPrimaryDark"
-        app:cornerRadius="30dp"
-        android:text="@string/app_name"
-        app:image="@drawable/ic_launcher" />
+        app:startColorSecond="@color/colorPrimaryDark" />
 
 </LinearLayout>

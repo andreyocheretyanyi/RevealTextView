@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <declare-styleable name="RevealTextView">
+    <declare-styleable name="RevealLinearLayout">
         <attr name="backgroundColorFirst" format="color"/>
         <attr name="backgroundColorSecond" format="color"/>
         <attr name="textColorFirst" format="color"/>

@@ -2,7 +2,6 @@ package com.example.android.revealtextview;
 
 import android.animation.Animator;
 import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -20,23 +19,25 @@ import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Xfermode;
 import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.animation.LinearInterpolator;
+import android.widget.LinearLayout;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
-public class RevealTextView extends android.support.v7.widget.AppCompatTextView {
+public class RevealLinearLayout extends LinearLayout {
 
 
     private final Xfermode mode = new PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP);
 
-    private int mAnimDuration = 300;
+    private int mAnimDuration = 1000;
     private float mCornerRadius;
     private boolean isFirstLayerVisible = true, isFirstInit = true, isAnimStart = false;
-    private int mFirstTextColor, mSecondTextColor, mFirstBackColorColor, mSecondBackColorColor,
+    private int mFirstBackColorColor, mSecondBackColorColor,
             mStartGradientColorFirst, mStartGradientColorSecond, mEndGradientColorFirst, mEndGradientColorSecond;
-
     private float cx;
     private float cy;
 
@@ -47,53 +48,43 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
     private Paint pathPaint;
     private Paint roundedPaint;
     private Paint mainPaint;
-    private int drawableRes;
+
 
     private ValueAnimator mValueAnimator;
+    private final List<Animator> animatorList = new ArrayList<>();
     private final TimeInterpolator interpolator = new LinearInterpolator();
-    private Drawable drawable;
 
 
-    public RevealTextView(Context context, AttributeSet attrs) {
+    public RevealLinearLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
         initAttrs(context, attrs);
         initTools();
     }
 
-    public RevealTextView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public RevealLinearLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         initAttrs(context, attrs);
         initTools();
 
     }
 
+
+    public int getCurrentState() {
+        return isFirstLayerVisible ? 0 : 1;
+    }
+
     private void initAttrs(Context context, AttributeSet attrs) {
-        TypedArray ta = context.obtainStyledAttributes(attrs, R.styleable.RevealTextView);
-        mFirstBackColorColor = ta.getColor(R.styleable.RevealTextView_backgroundColorFirst, Color.RED);
-        mSecondBackColorColor = ta.getColor(R.styleable.RevealTextView_backgroundColorSecond, Color.BLACK);
-        mFirstTextColor = ta.getColor(R.styleable.RevealTextView_textColorFirst, Color.BLACK);
-        mSecondTextColor = ta.getColor(R.styleable.RevealTextView_textColorSecond, Color.RED);
-        mStartGradientColorFirst = ta.getColor(R.styleable.RevealTextView_startColorFirst, -1);
-        mEndGradientColorFirst = ta.getColor(R.styleable.RevealTextView_endColorFirst, -1);
-        mStartGradientColorSecond = ta.getColor(R.styleable.RevealTextView_startColorSecond, -1);
-        mEndGradientColorSecond = ta.getColor(R.styleable.RevealTextView_endColorSecond, -1);
-        mAnimDuration = ta.getInt(R.styleable.RevealTextView_animDuration, 300);
-        mCornerRadius = ta.getDimension(R.styleable.RevealTextView_cornerRadius, convertDpToPixel(5));
+        TypedArray ta = context.obtainStyledAttributes(attrs, R.styleable.RevealLinearLayout);
+        mFirstBackColorColor = ta.getColor(R.styleable.RevealLinearLayout_backgroundColorFirst, Color.RED);
+        mSecondBackColorColor = ta.getColor(R.styleable.RevealLinearLayout_backgroundColorSecond, Color.BLACK);
+        mStartGradientColorFirst = ta.getColor(R.styleable.RevealLinearLayout_startColorFirst, -1);
+        mEndGradientColorFirst = ta.getColor(R.styleable.RevealLinearLayout_endColorFirst, -1);
+        mStartGradientColorSecond = ta.getColor(R.styleable.RevealLinearLayout_startColorSecond, -1);
+        mEndGradientColorSecond = ta.getColor(R.styleable.RevealLinearLayout_endColorSecond, -1);
+        mAnimDuration = ta.getInt(R.styleable.RevealLinearLayout_animDuration, 700);
+        mCornerRadius = ta.getDimension(R.styleable.RevealLinearLayout_cornerRadius, convertDpToPixel(5));
 
-        if (ta.getResourceId(R.styleable.RevealTextView_drawableLeft, -1) != -1) {
-            drawable = getResources().getDrawable(ta.getResourceId(R.styleable.RevealTextView_drawableLeft, -1));
-            setCompoundDrawablesWithIntrinsicBounds(drawable, null, null, null);
-        } else if (ta.getResourceId(R.styleable.RevealTextView_drawableRight, -1) != -1) {
-            drawable = getResources().getDrawable(ta.getResourceId(R.styleable.RevealTextView_drawableRight, -1));
-            setCompoundDrawablesWithIntrinsicBounds(null, null, drawable, null);
-        } else if (ta.getResourceId(R.styleable.RevealTextView_drawableTop, -1) != -1) {
-            drawable = getResources().getDrawable(ta.getResourceId(R.styleable.RevealTextView_drawableTop, -1));
-            setCompoundDrawablesWithIntrinsicBounds(null, drawable, null, null);
-        } else if (ta.getResourceId(R.styleable.RevealTextView_drawableBottom, -1) != -1) {
-            drawable = getResources().getDrawable(ta.getResourceId(R.styleable.RevealTextView_drawableBottom, -1));
-            setCompoundDrawablesWithIntrinsicBounds(null, null, null, drawable);
-        }
-
+        setWillNotDraw(false);
 
         ta.recycle();
 
@@ -101,18 +92,49 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
 
     }
 
+
+    public void addAnimation(List<Animator> animators) {
+        animatorList.clear();
+        animatorList.add(mValueAnimator);
+        animatorList.addAll(animators);
+    }
+
+
+    public void restoreAnimation() {
+        animatorList.clear();
+        animatorList.add(mValueAnimator);
+    }
+
+
     public void startAnim() {
         if (!isAnimStart) {
-            isAnimStart = true;
-            ObjectAnimator animator;
-            if (!isFirstLayerVisible) {
-                animator = ObjectAnimator.ofInt(drawable, "level", 0, 720).setDuration(mAnimDuration);
-            }else {
-                animator = ObjectAnimator.ofInt(drawable, "level", 720, 0).setDuration(mAnimDuration);
-            }
             AnimatorSet animatorSet = new AnimatorSet();
+            animatorSet.setInterpolator(interpolator);
             animatorSet.setDuration(mAnimDuration);
-            animatorSet.playTogether(mValueAnimator, animator);
+            animatorSet.playTogether(animatorList);
+            animatorSet.addListener(new Animator.AnimatorListener() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+                    isAnimStart = true;
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    isAnimStart = false;
+                    isFirstLayerVisible = !isFirstLayerVisible;
+
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationRepeat(Animator animation) {
+
+                }
+            });
             animatorSet.start();
 
         }
@@ -132,48 +154,34 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
     }
 
     @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        setUpAnimation();
-
-    }
-
-    @Override
     public void draw(Canvas canvas) {
         super.draw(canvas);
         if (isFirstInit) {
-            createBackground(getWidth() / 1.5f);
+            cx = getWidth() / 2;
+            cy = getHeight() / 2;
+            if (firstGradientExist()) {
+                mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
+            } else {
+                mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mFirstBackColorColor, mFirstBackColorColor, Shader.TileMode.MIRROR);
+            }
+
+            if (secondGradientExist()) {
+                mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
+            } else {
+                mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mSecondBackColorColor, mSecondBackColorColor, Shader.TileMode.MIRROR);
+            }
+            setUpAnimation();
+            createBackground(0);
             isFirstInit = false;
-            isFirstLayerVisible = !isFirstLayerVisible;
+
         }
     }
 
     private void setUpAnimation() {
-        mValueAnimator = ValueAnimator.ofFloat(0, getWidth() / 1.5f);
+        mValueAnimator = ValueAnimator.ofFloat(0, getWidth() / 1.9f);
         mValueAnimator.setDuration(mAnimDuration);
         mValueAnimator.setInterpolator(interpolator);
-        mValueAnimator.addListener(new Animator.AnimatorListener() {
-            @Override
-            public void onAnimationStart(Animator animation) {
-            }
-
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                isAnimStart = false;
-                isFirstLayerVisible = !isFirstLayerVisible;
-
-            }
-
-            @Override
-            public void onAnimationCancel(Animator animation) {
-
-            }
-
-            @Override
-            public void onAnimationRepeat(Animator animation) {
-
-            }
-        });
+        animatorList.add(mValueAnimator);
 
         mValueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
@@ -185,10 +193,6 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
 
 
     private void createBackground(float radius) {
-        cx = getWidth() / 2;
-        cy = getHeight() / 2;
-        mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
-        mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
 
         Bitmap background = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(background);
@@ -212,33 +216,16 @@ public class RevealTextView extends android.support.v7.widget.AppCompatTextView 
     private void drawMainLayers(float maxRadius) {
         if (isFirstLayerVisible) {
             //first layer
-            if (!firstGradientExist()) {
-                drawLayer(cx, cy, mFirstBackColorColor, getWidth() / 1.5f);
-            } else {
-                drawLayer(cx, cy, mFirstGradient, getWidth() / 1.5f);
-            }
+            drawLayer(cx, cy, mFirstGradient, getWidth() / 1.9f);
 
             //second layer
-            if (!secondGradientExist()) {
-                drawLayer(cx, cy, mSecondBackColorColor, maxRadius);
-            } else {
-                drawLayer(cx, cy, mSecondGradient, maxRadius);
-            }
+            drawLayer(cx, cy, mSecondGradient, maxRadius);
 
         } else {
-            //second layer
-            if (!secondGradientExist())
-                drawLayer(cx, cy, mSecondBackColorColor, getWidth() / 1.5f);
-            else {
-                drawLayer(cx, cy, mSecondGradient, getWidth() / 1.5f);
-            }
+            drawLayer(cx, cy, mSecondGradient, getWidth() / 1.9f);
 
             //first layer
-            if (!firstGradientExist())
-                drawLayer(cx, cy, mFirstBackColorColor, maxRadius);
-            else {
-                drawLayer(cx, cy, mFirstGradient, maxRadius);
-            }
+            drawLayer(cx, cy, mFirstGradient, maxRadius);
         }
     }
 

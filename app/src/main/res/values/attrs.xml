@@ -13,5 +13,6 @@
         <attr name="text" format="string"/>
         <attr name="cornerRadius" format="dimension"/>
         <attr name="animDuration" format="integer"/>
+        <attr name="image" format="reference"/>
     </declare-styleable>
 </resources>

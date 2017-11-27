@@ -1,5 +1,8 @@
 package com.example.android.revealtextview;
 
+import android.animation.Animator;
+import android.animation.TimeInterpolator;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
@@ -14,43 +17,36 @@ import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Xfermode;
+import android.graphics.drawable.BitmapDrawable;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.view.View;
+import android.view.animation.LinearInterpolator;
 
 
-public class RevealTextView extends View {
+public class RevealTextView extends android.support.v7.widget.AppCompatTextView {
 
 
-    private static final int mFps = 30;
     private final Xfermode mode = new PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP);
 
-    private int mAnimDuration = 1000;
+    private int mAnimDuration = 300;
     private float mCornerRadius;
-    private int mCurrentInvalidateCount;
-    private int mMaxInvalidateCount;
-    private float mChangedRadius;
-    private boolean isFirstLayerVisible = true, isFirstInit = true, isNeedShowAnim = false, isAnimStart = false;
-    private int mHighAlpha = 255;
-    private int mLowAlpha = 0;
+    private boolean isFirstLayerVisible = true, isFirstInit = true, isAnimStart = false;
     private int mFirstTextColor, mSecondTextColor, mFirstBackColorColor, mSecondBackColorColor,
             mStartGradientColorFirst, mStartGradientColorSecond, mEndGradientColorFirst, mEndGradientColorSecond;
-    private float mTextSize = 20;
-    private String mText;
+
     private float cx;
     private float cy;
-    private float step;
-    private int alphaStep;
 
     private LinearGradient mFirstGradient, mSecondGradient;
     private Canvas roundedBitmapCanvas, mainViewCanvas;
     private Bitmap roundedBitmap, mainViewBitmap;
     private Path mPath;
-    private Path textPath;
-    private Paint textPaint;
     private Paint pathPaint;
     private Paint roundedPaint;
     private Paint mainPaint;
+
+    private ValueAnimator mValueAnimator;
+    private final TimeInterpolator interpolator = new LinearInterpolator();
 
 
     public RevealTextView(Context context, AttributeSet attrs) {
@@ -76,9 +72,7 @@ public class RevealTextView extends View {
         mEndGradientColorFirst = ta.getColor(R.styleable.RevealTextView_endColorFirst, -1);
         mStartGradientColorSecond = ta.getColor(R.styleable.RevealTextView_startColorSecond, -1);
         mEndGradientColorSecond = ta.getColor(R.styleable.RevealTextView_endColorSecond, -1);
-        mTextSize = ta.getDimension(R.styleable.RevealTextView_textSize, 20);
-        mText = ta.getString(R.styleable.RevealTextView_text);
-        mAnimDuration = ta.getInt(R.styleable.RevealTextView_animDuration, 1000);
+        mAnimDuration = ta.getInt(R.styleable.RevealTextView_animDuration, 300);
         mCornerRadius = ta.getDimension(R.styleable.RevealTextView_cornerRadius, convertDpToPixel(5));
 
         ta.recycle();
@@ -90,22 +84,12 @@ public class RevealTextView extends View {
     public void startAnim() {
         if (!isAnimStart) {
             isAnimStart = true;
-            isNeedShowAnim = true;
-            invalidate();
+            mValueAnimator.start();
         }
     }
 
     private void initTools() {
-        mMaxInvalidateCount = (int) (mAnimDuration / mFps);
         mPath = new Path();
-        alphaStep = (int) (255f / mMaxInvalidateCount);
-
-        textPath = new Path();
-        textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        textPaint.setStyle(Paint.Style.FILL);
-        textPaint.setTextSize(mTextSize);
-        textPaint.setTextAlign(Paint.Align.CENTER);
-
         pathPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         pathPaint.setAntiAlias(true);
         pathPaint.setStyle(Paint.Style.FILL);
@@ -119,20 +103,70 @@ public class RevealTextView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        if (isFirstInit) {
-            cx = getWidth() / 2;
-            cy = getHeight() / 2;
-            step = (getWidth() / 1.5f) / mMaxInvalidateCount;
-            isFirstInit = false;
-            mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
-            mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
-        }
+        super.onDraw(canvas);
+        setUpAnimation();
 
+    }
+
+    @Override
+    public void draw(Canvas canvas) {
+        super.draw(canvas);
+        if (isFirstInit) {
+            createBackground(getWidth() / 1.5f);
+            isFirstInit = false;
+            isFirstLayerVisible = !isFirstLayerVisible;
+        }
+    }
+
+    private void setUpAnimation() {
+        mValueAnimator = ValueAnimator.ofFloat(0, getWidth() / 1.5f);
+        mValueAnimator.setDuration(mAnimDuration);
+        mValueAnimator.setInterpolator(interpolator);
+        mValueAnimator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                isAnimStart = false;
+                isFirstLayerVisible = !isFirstLayerVisible;
+
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        });
+
+        mValueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                createBackground((Float) animation.getAnimatedValue());
+            }
+        });
+    }
+
+
+    private void createBackground(float radius) {
+        cx = getWidth() / 2;
+        cy = getHeight() / 2;
+        mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
+        mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
+
+        Bitmap background = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(background);
         //drawRoundCorners
         clipPath();
 
         //draw mainLayers
-        drawMainLayers();
+        drawMainLayers(radius);
 
 
         canvas.drawBitmap(roundedBitmap, 0, 0, mainPaint);
@@ -140,63 +174,45 @@ public class RevealTextView extends View {
         canvas.drawBitmap(mainViewBitmap, 0, 0, mainPaint);
         mainPaint.setXfermode(null);
 
-        mHighAlpha -= alphaStep;
-        mLowAlpha += alphaStep;
-        mChangedRadius += step;
 
-
-        if (isNeedShowAnim)
-            if (mCurrentInvalidateCount <= mMaxInvalidateCount) {
-                mCurrentInvalidateCount++;
-                invalidate();
-
-            } else {
-                isAnimStart = false;
-                isFirstLayerVisible = !isFirstLayerVisible;
-                mChangedRadius = 0;
-                mCurrentInvalidateCount = 0;
-                mHighAlpha = 255;
-                mLowAlpha = 0;
-            }
-
-
+        BitmapDrawable bitmapDrawable = new BitmapDrawable(getResources(), background);
+        setBackground(bitmapDrawable);
     }
 
-    private void drawMainLayers() {
+    private void drawMainLayers(float maxRadius) {
         if (isFirstLayerVisible) {
             //first layer
-            if (!firstGradientExist())
-                drawLayer(cx, cy, mFirstBackColorColor, step * mMaxInvalidateCount, mFirstTextColor, mHighAlpha);
-            else {
-                drawLayer(cx, cy, mFirstGradient, step * mMaxInvalidateCount, mFirstTextColor, mHighAlpha);
+            if (!firstGradientExist()) {
+                drawLayer(cx, cy, mFirstBackColorColor, getWidth() / 1.5f);
+            } else {
+                drawLayer(cx, cy, mFirstGradient, getWidth() / 1.5f);
             }
 
             //second layer
             if (!secondGradientExist()) {
-                drawLayer(cx, cy, mSecondBackColorColor, mChangedRadius, mSecondTextColor, mLowAlpha);
+                drawLayer(cx, cy, mSecondBackColorColor, maxRadius);
             } else {
-                drawLayer(cx, cy, mSecondGradient, mChangedRadius, mSecondTextColor, mLowAlpha);
+                drawLayer(cx, cy, mSecondGradient, maxRadius);
             }
 
         } else {
             //second layer
             if (!secondGradientExist())
-                drawLayer(cx, cy, mSecondBackColorColor, step * mMaxInvalidateCount, mSecondTextColor, mHighAlpha);
+                drawLayer(cx, cy, mSecondBackColorColor, getWidth() / 1.5f);
             else {
-                drawLayer(cx, cy, mSecondGradient, step * mMaxInvalidateCount, mSecondTextColor, mHighAlpha);
+                drawLayer(cx, cy, mSecondGradient, getWidth() / 1.5f);
             }
 
             //first layer
             if (!firstGradientExist())
-                drawLayer(cx, cy, mFirstBackColorColor, mChangedRadius, mFirstTextColor, mLowAlpha);
+                drawLayer(cx, cy, mFirstBackColorColor, maxRadius);
             else {
-                drawLayer(cx, cy, mFirstGradient, mChangedRadius, mFirstTextColor, mLowAlpha);
+                drawLayer(cx, cy, mFirstGradient, maxRadius);
             }
         }
     }
 
-
-    private void drawLayer(float cx, float cy, int backgroundColor, float radius, int textColor, int textAlpha) {
+    private void drawLayer(float cx, float cy, int backgroundColor, float radius) {
         if (mainViewBitmap == null) {
             mainViewBitmap = Bitmap.createBitmap(getWidth(),
                     getHeight(),
@@ -207,28 +223,15 @@ public class RevealTextView extends View {
                     PorterDuff.Mode.CLEAR);
         }
 
-        textPaint.setStyle(Paint.Style.FILL);
-        textPaint.setColor(textColor);
-        textPaint.setAlpha(textAlpha);
-        textPaint.setTextAlign(Paint.Align.CENTER);
-        textPath.moveTo(0, cy);
-        textPath.lineTo(getWidth(), cy);
-
-
-        mPath.addCircle(cx, cy, radius, Path.Direction.CW);
-
-
         mPath.addCircle(cx, cy, radius, Path.Direction.CW);
         pathPaint.setColor(backgroundColor);
-        mPath.addPath(textPath);
         mainViewCanvas.drawPath(mPath, pathPaint);
-        if (mText != null)
-            mainViewCanvas.drawTextOnPath(mText, textPath, 0, 0, textPaint);
 
         mPath.reset();
     }
 
-    private void drawLayer(float cx, float cy, LinearGradient linearGradient, float radius, int textColor, int textAlpha) {
+
+    private void drawLayer(float cx, float cy, LinearGradient linearGradient, float radius) {
         if (mainViewBitmap == null) {
             mainViewBitmap = Bitmap.createBitmap(getWidth(),
                     getHeight(),
@@ -239,23 +242,10 @@ public class RevealTextView extends View {
                     PorterDuff.Mode.CLEAR);
         }
 
-        textPaint.setStyle(Paint.Style.FILL);
-        textPaint.setColor(textColor);
-        textPaint.setAlpha(textAlpha);
-        textPaint.setTextAlign(Paint.Align.CENTER);
-        textPath.moveTo(0, cy);
-        textPath.lineTo(getWidth(), cy);
-
-
-        mPath.addCircle(cx, cy, radius, Path.Direction.CW);
-
 
         mPath.addCircle(cx, cy, radius, Path.Direction.CW);
         pathPaint.setShader(linearGradient);
-        mPath.addPath(textPath);
         mainViewCanvas.drawPath(mPath, pathPaint);
-        if (mText != null)
-            mainViewCanvas.drawTextOnPath(mText, textPath, 0, 0, textPaint);
 
         mPath.reset();
     }
@@ -275,7 +265,6 @@ public class RevealTextView extends View {
         Path path = new Path();
         path.addRoundRect(new RectF(0, 0, getWidth(), getHeight()), mCornerRadius, mCornerRadius, Path.Direction.CW);
         roundedBitmapCanvas.drawPath(path, roundedPaint);
-
     }
 
 

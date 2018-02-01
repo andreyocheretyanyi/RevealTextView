@@ -3,6 +3,7 @@ package com.example.android.revealtextview;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.RelativeLayout;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -11,11 +12,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final RevealTextView textView = findViewById(R.id.textView);
+        final RevealLinearLayout textView = findViewById(R.id.textView);
         textView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ((RevealTextView) v).startAnim();
+                ((RevealLinearLayout) v).startAnim();
             }
         });
     }

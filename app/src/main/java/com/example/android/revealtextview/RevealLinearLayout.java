@@ -12,13 +12,12 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
 import android.graphics.Shader;
-import android.graphics.Xfermode;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.animation.LinearInterpolator;
@@ -31,28 +30,25 @@ import java.util.List;
 public class RevealLinearLayout extends LinearLayout {
 
 
-    private final Xfermode mode = new PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP);
-
-    private int mAnimDuration = 1000;
+    private int mAnimDuration;
     private float mCornerRadius;
-    private boolean isFirstLayerVisible = true, isFirstInit = true, isAnimStart = false;
+    private boolean isFirstLayerVisible = true, isAnimStart = false;
     private int mFirstBackColorColor, mSecondBackColorColor,
             mStartGradientColorFirst, mStartGradientColorSecond, mEndGradientColorFirst, mEndGradientColorSecond;
     private float cx;
     private float cy;
 
     private LinearGradient mFirstGradient, mSecondGradient;
-    private Canvas roundedBitmapCanvas, mainViewCanvas;
-    private Bitmap roundedBitmap, mainViewBitmap;
-    private Path mPath;
-    private Paint pathPaint;
-    private Paint roundedPaint;
+    private Bitmap mainViewBitmap;
     private Paint mainPaint;
+    private Drawable backgroundStart, backgroundEnd;
 
 
     private ValueAnimator mValueAnimator;
     private final List<Animator> animatorList = new ArrayList<>();
     private final TimeInterpolator interpolator = new LinearInterpolator();
+    private Drawable currentBackground;
+    private Animator.AnimatorListener listener;
 
 
     public RevealLinearLayout(Context context, AttributeSet attrs) {
@@ -81,14 +77,16 @@ public class RevealLinearLayout extends LinearLayout {
         mEndGradientColorFirst = ta.getColor(R.styleable.RevealLinearLayout_endColorFirst, -1);
         mStartGradientColorSecond = ta.getColor(R.styleable.RevealLinearLayout_startColorSecond, -1);
         mEndGradientColorSecond = ta.getColor(R.styleable.RevealLinearLayout_endColorSecond, -1);
-        mAnimDuration = ta.getInt(R.styleable.RevealLinearLayout_animDuration, 700);
+        mAnimDuration = ta.getInt(R.styleable.RevealLinearLayout_animDuration, 300);
         mCornerRadius = ta.getDimension(R.styleable.RevealLinearLayout_cornerRadius, convertDpToPixel(5));
+        backgroundStart = ta.getDrawable(R.styleable.RevealLinearLayout_backgroundStart);
+        backgroundEnd = ta.getDrawable(R.styleable.RevealLinearLayout_backgroundEnd);
+        currentBackground = backgroundStart;
 
-        setWillNotDraw(false);
+        setBackground(currentBackground);
 
         ta.recycle();
 
-        setLayerType(LAYER_TYPE_SOFTWARE, null);
 
     }
 
@@ -105,80 +103,10 @@ public class RevealLinearLayout extends LinearLayout {
         animatorList.add(mValueAnimator);
     }
 
-
-    public void startAnim() {
-        if (!isAnimStart) {
-            AnimatorSet animatorSet = new AnimatorSet();
-            animatorSet.setInterpolator(interpolator);
-            animatorSet.setDuration(mAnimDuration);
-            animatorSet.playTogether(animatorList);
-            animatorSet.addListener(new Animator.AnimatorListener() {
-                @Override
-                public void onAnimationStart(Animator animation) {
-                    isAnimStart = true;
-                }
-
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    isAnimStart = false;
-                    isFirstLayerVisible = !isFirstLayerVisible;
-
-                }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-
-                }
-
-                @Override
-                public void onAnimationRepeat(Animator animation) {
-
-                }
-            });
-            animatorSet.start();
-
-        }
-    }
-
-    private void initTools() {
-        mPath = new Path();
-        pathPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        pathPaint.setAntiAlias(true);
-        pathPaint.setStyle(Paint.Style.FILL);
-        pathPaint.setFilterBitmap(true);
-
-        roundedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        roundedPaint.setFilterBitmap(true);
-
-        mainPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    }
-
-    @Override
-    public void draw(Canvas canvas) {
-        super.draw(canvas);
-        if (isFirstInit) {
-            cx = getWidth() / 2;
-            cy = getHeight() / 2;
-            if (firstGradientExist()) {
-                mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
-            } else {
-                mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mFirstBackColorColor, mFirstBackColorColor, Shader.TileMode.MIRROR);
-            }
-
-            if (secondGradientExist()) {
-                mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
-            } else {
-                mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mSecondBackColorColor, mSecondBackColorColor, Shader.TileMode.MIRROR);
-            }
-            setUpAnimation();
-            createBackground(0);
-            isFirstInit = false;
-
-        }
-    }
-
     private void setUpAnimation() {
-        mValueAnimator = ValueAnimator.ofFloat(0, getWidth() / 1.9f);
+        if (mValueAnimator != null)
+            animatorList.remove(mValueAnimator);
+        mValueAnimator = ValueAnimator.ofFloat(0, getWidth() / 2f);
         mValueAnimator.setDuration(mAnimDuration);
         mValueAnimator.setInterpolator(interpolator);
         animatorList.add(mValueAnimator);
@@ -191,97 +119,141 @@ public class RevealLinearLayout extends LinearLayout {
         });
     }
 
+    private void startAnim(int duration) {
+        calculateSize();
+        if (!isAnimStart) {
+
+            setUpAnimation();
+            AnimatorSet animatorSet = new AnimatorSet();
+            animatorSet.setInterpolator(interpolator);
+            animatorSet.setDuration(duration);
+            animatorSet.playTogether(animatorList);
+            animatorSet.addListener(listener);
+            animatorSet.start();
+
+        }
+    }
+
+    public void startAnim() {
+        startAnim(mAnimDuration);
+    }
+
+    public void restoreStates(){
+        startAnim(0);
+    }
+
+
+    private void initTools() {
+        listener = new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+                isAnimStart = true;
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                if (isFirstLayerVisible) {
+                    currentBackground = backgroundEnd;
+                } else {
+                    currentBackground = backgroundStart;
+                }
+                setBackground(currentBackground);
+                isAnimStart = false;
+                isFirstLayerVisible = !isFirstLayerVisible;
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        };
+
+        mainPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mainPaint.setAntiAlias(true);
+        mainPaint.setStyle(Paint.Style.FILL);
+        mainPaint.setFilterBitmap(true);
+    }
+
+
+    private void calculateSize() {
+        cx = getWidth()/2;
+        cy = getHeight()/2;
+        createGradients();
+    }
+
+
+    private void createGradients() {
+        if (firstGradientExist()) {
+            mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorFirst, mEndGradientColorFirst, Shader.TileMode.MIRROR);
+        } else {
+            mFirstGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mFirstBackColorColor, mFirstBackColorColor, Shader.TileMode.MIRROR);
+        }
+
+        if (secondGradientExist()) {
+            mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mStartGradientColorSecond, mEndGradientColorSecond, Shader.TileMode.MIRROR);
+        } else {
+            mSecondGradient = new LinearGradient(0, 0, getWidth(), getHeight(), mSecondBackColorColor, mSecondBackColorColor, Shader.TileMode.MIRROR);
+        }
+    }
+
 
     private void createBackground(float radius) {
 
-        Bitmap background = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(background);
-        //drawRoundCorners
-        clipPath();
+        if (getWidth() > 0 && getHeight() > 0) {
 
-        //draw mainLayers
-        drawMainLayers(radius);
+            //draw mainLayers
+            drawMainLayers(radius);
 
+            BitmapDrawable bitmapDrawable = new BitmapDrawable(getResources(), mainViewBitmap);
+            setBackground(bitmapDrawable);
 
-        canvas.drawBitmap(roundedBitmap, 0, 0, mainPaint);
-        mainPaint.setXfermode(mode);
-        canvas.drawBitmap(mainViewBitmap, 0, 0, mainPaint);
-        mainPaint.setXfermode(null);
-
-
-        BitmapDrawable bitmapDrawable = new BitmapDrawable(getResources(), background);
-        setBackground(bitmapDrawable);
+        }
     }
 
     private void drawMainLayers(float maxRadius) {
         if (isFirstLayerVisible) {
-            //first layer
-            drawLayer(cx, cy, mFirstGradient, getWidth() / 1.9f);
 
-            //second layer
-            drawLayer(cx, cy, mSecondGradient, maxRadius);
+            //secondLayer
+//            drawLayer(cx, cy, mFirstGradient, mSecondGradient, sizeWidth / 2f);
+
+            //first layer
+            drawLayer(cx, cy, mSecondGradient, mFirstGradient, maxRadius);
+
 
         } else {
-            drawLayer(cx, cy, mSecondGradient, getWidth() / 1.9f);
-
             //first layer
-            drawLayer(cx, cy, mFirstGradient, maxRadius);
+//            drawLayer(cx, cy, mSecondGradient, mFirstGradient, sizeWidth / 2f);
+
+            //second layer
+            drawLayer(cx, cy, mFirstGradient, mSecondGradient, maxRadius);
         }
     }
 
-    private void drawLayer(float cx, float cy, int backgroundColor, float radius) {
-        if (mainViewBitmap == null) {
-            mainViewBitmap = Bitmap.createBitmap(getWidth(),
-                    getHeight(),
-                    Bitmap.Config.ARGB_8888);
-            mainViewCanvas = new Canvas(mainViewBitmap);
-            mainViewCanvas.drawColor(
-                    Color.TRANSPARENT,
-                    PorterDuff.Mode.CLEAR);
-        }
 
-        mPath.addCircle(cx, cy, radius, Path.Direction.CW);
-        pathPaint.setColor(backgroundColor);
-        mainViewCanvas.drawPath(mPath, pathPaint);
+    private void drawLayer(float cx, float cy, LinearGradient first, LinearGradient second, float radius) {
 
-        mPath.reset();
-    }
+        mainViewBitmap = Bitmap.createBitmap(
+                getWidth(),
+                getHeight(),
+                Bitmap.Config.ARGB_8888);
+        Canvas mainViewCanvas = new Canvas(mainViewBitmap);
 
+        mainViewCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
 
-    private void drawLayer(float cx, float cy, LinearGradient linearGradient, float radius) {
-        if (mainViewBitmap == null) {
-            mainViewBitmap = Bitmap.createBitmap(getWidth(),
-                    getHeight(),
-                    Bitmap.Config.ARGB_8888);
-            mainViewCanvas = new Canvas(mainViewBitmap);
-            mainViewCanvas.drawColor(
-                    Color.TRANSPARENT,
-                    PorterDuff.Mode.CLEAR);
-        }
+        currentBackground.draw(mainViewCanvas);
+        mainPaint.setShader(second);
+        mainViewCanvas.drawRoundRect(new RectF(0, 0, getWidth(), getHeight()), mCornerRadius, mCornerRadius, mainPaint);
+        mainPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+        mainPaint.setShader(first);
+        mainViewCanvas.drawCircle(cx, cy, radius, mainPaint);
+        mainPaint.setXfermode(null);
 
 
-        mPath.addCircle(cx, cy, radius, Path.Direction.CW);
-        pathPaint.setShader(linearGradient);
-        mainViewCanvas.drawPath(mPath, pathPaint);
-
-        mPath.reset();
-    }
-
-
-    private void clipPath() {
-        if (roundedBitmap == null) {
-            roundedBitmap = Bitmap.createBitmap(getWidth(),
-                    getHeight(),
-                    Bitmap.Config.ARGB_8888);
-            roundedBitmapCanvas = new Canvas(roundedBitmap);
-        }
-        roundedBitmapCanvas.drawColor(
-                Color.TRANSPARENT,
-                PorterDuff.Mode.CLEAR);
-
-        Path path = new Path();
-        path.addRoundRect(new RectF(0, 0, getWidth(), getHeight()), mCornerRadius, mCornerRadius, Path.Direction.CW);
-        roundedBitmapCanvas.drawPath(path, roundedPaint);
     }
 
 

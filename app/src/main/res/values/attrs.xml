@@ -1,19 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <declare-styleable name="RevealLinearLayout">
-        <attr name="backgroundColorFirst" format="color"/>
-        <attr name="backgroundColorSecond" format="color"/>
-        <attr name="textColorFirst" format="color"/>
-        <attr name="textColorSecond" format="color"/>
-        <attr name="startColorFirst" format="color"/>
-        <attr name="startColorSecond" format="color"/>
-        <attr name="endColorFirst" format="color"/>
-        <attr name="endColorSecond" format="color"/>
-        <attr name="cornerRadius" format="dimension"/>
-        <attr name="animDuration" format="integer"/>
-        <attr name="drawableLeft" format="reference"/>
-        <attr name="drawableRight" format="reference"/>
-        <attr name="drawableTop" format="reference"/>
-        <attr name="drawableBottom" format="reference"/>
+        <attr name="backgroundColorFirst" format="color" />
+        <attr name="backgroundColorSecond" format="color" />
+        <attr name="startColorFirst" format="color" />
+        <attr name="startColorSecond" format="color" />
+        <attr name="endColorFirst" format="color" />
+        <attr name="endColorSecond" format="color" />
+        <attr name="cornerRadius" format="dimension" />
+        <attr name="animDuration" format="integer" />
+        <attr name="backgroundStart" format="reference" />
+        <attr name="backgroundEnd" format="reference" />
     </declare-styleable>
 </resources>

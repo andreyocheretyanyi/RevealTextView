@@ -3,4 +3,12 @@
     <color name="colorPrimary">#3F51B5</color>
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FF4081</color>
+
+    <color name="start_orange">#F25821</color>
+    <color name="end_orange">#FD7B2E</color>
+    <color name="start_blue">#00B1E5</color>
+    <color name="end_blue">#00C3FF</color>
+    <color name="rate_image_back_unpicked">#FFF0F0F0</color>
+    <color name="rate_image_back_picked">#FFEF5016</color>
+    <color name="gray_for_tag_background">#FFDADADA</color>
 </resources>

@@ -12,7 +12,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final RevealLinearLayout textView = findViewById(R.id.textView);
+        final RevealLinearLayout textView = findViewById(R.id.rll_container);
         textView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {

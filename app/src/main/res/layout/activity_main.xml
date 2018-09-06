@@ -8,21 +8,35 @@
     tools:context="com.example.android.revealtextview.MainActivity">
 
     <com.example.android.revealtextview.RevealLinearLayout
-        android:id="@+id/textView"
+        android:id="@+id/rll_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:layout_marginTop="20dp"
+        app:backgroundColorFirst="@color/rate_image_back_unpicked"
+        app:backgroundEnd="@drawable/rectangle_orange_for_rate"
+        app:backgroundStart="@drawable/rectangle_gray_for_rate"
         app:cornerRadius="15dp"
-        app:backgroundStart="@color/colorAccent"
-        app:endColorSecond="@color/colorPrimary"
-        app:startColorSecond="@color/colorAccent"
-        app:backgroundEnd="@color/colorPrimary"
-        >
+        app:endColorSecond="@color/end_orange"
+        app:startColorSecond="@color/start_orange">
 
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="@string/app_name" />
+            android:text="Hello big strange world"
+            android:id="@+id/tv_text_view"
+            style="@style/TextViewInRateCafeStyle" />
+
+        <!--<ImageView-->
+            <!--android:id="@+id/iv_first_tag"-->
+            <!--android:layout_width="20dp"-->
+            <!--android:layout_height="20dp"-->
+            <!--android:layout_gravity="center"-->
+            <!--android:layout_marginBottom="5dp"-->
+            <!--android:layout_marginStart="12dp"-->
+            <!--android:layout_marginEnd="5dp"-->
+            <!--android:layout_marginTop="5dp"-->
+            <!--android:background="@drawable/circle_for_tag_image_grey"-->
+            <!--android:src="@android:drawable/star_on" />-->
+
     </com.example.android.revealtextview.RevealLinearLayout>
 
 </LinearLayout>

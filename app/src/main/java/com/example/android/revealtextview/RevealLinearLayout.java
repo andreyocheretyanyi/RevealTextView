@@ -217,18 +217,9 @@ public class RevealLinearLayout extends LinearLayout {
 
     private void drawMainLayers(float maxRadius) {
         if (isFirstLayerVisible) {
-
-            //secondLayer
-//            drawLayer(cx, cy, mFirstGradient, mSecondGradient, sizeWidth / 2f);
-
             //first layer
             drawLayer(cx, cy, mSecondGradient, mFirstGradient, maxRadius);
-
-
         } else {
-            //first layer
-//            drawLayer(cx, cy, mSecondGradient, mFirstGradient, sizeWidth / 2f);
-
             //second layer
             drawLayer(cx, cy, mFirstGradient, mSecondGradient, maxRadius);
         }
